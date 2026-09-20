@@ -2,6 +2,20 @@
 
 Validated on Apple M5 Pro / 24 GB unified memory, macOS 26.5.2, Go 1.26.4, Docker 29.6.1 and llama.cpp 0.4.0. The model download passed its pinned SHA-256 checksum.
 
+## Suggested changes and visual comparison
+
+Browser-started run `RUN-20260920-152525.464955000` captured Veda commit `ac3883c98b44890f5793f4934b2889ac11453674` from GitHub. All six recorded steps passed: source capture, architecture mapping, source parsing, local-model review, change drafting, and screenshot capture. The real local model proposed a one-line button background change in `examples/ui-review/index.html`. Its portable patch passed `git apply --check` against a separate copy of the original file.
+
+The original and proposed static page were rendered by Chromium in separate network-disabled, read-only Docker containers at 1280 × 900. The before/after images differ in 1.1753% of pixels; this measures visual change, not quality or functional correctness. The run payload and all three PNG hashes verified. Runtime image: `sha256:c0d90b85ec749850c8024072d4d20729aab1ad4490465e43b71658d01618cf95`.
+
+Browser checks covered split/unified diffs, file selection/filtering, viewed markers, links to exact validation evidence, rejected legacy benchmark patches, real screenshot loading, side-by-side, keyboard-operated swipe, and highlighted differences. The 390px and 320px layouts had no document overflow. No browser errors were recorded; Cytoscape's existing custom wheel-sensitivity warning remains.
+
+Go tests cover exact source matching, protected paths, invalid/no-op edits, portable patches, bounded correction attempts, reuse, screenshot differences, checksum failures, cross-revision access, page selection, and focused model context. The opt-in Docker integration test captured a real comparison, ignored an unrelated page's external assets, and marked a missing selected-page image as partial. `go test -race ./...`, `go vet ./...`, all 15 Node tests, JavaScript/shell syntax, and diff checks passed.
+
+Earlier trial records remain in the isolated validation store. They exposed a no-op proposal, an oversized review prompt for the local model, and false missing-asset warnings from unrelated pages. Exact-match rejection with one bounded correction attempt, focused/bounded review context, and selected-page asset reporting addressed these cases before the final run.
+
+New suggestions are unapproved proposals. The final trial did not run application tests on the suggested patch. This release captures static HTML pages only; framework builds, backend startup, and visual assertions across multiple routes/viewports are not implemented. Missing assets are disclosed, and a screenshot never implies functional validation.
+
 ## Interactive agent office
 
 The office retains the original minion characters at six workstations. A browser-started investigation (`RUN-20260920-144319.498296000`) completed source capture, architecture mapping, source parsing, and a real local-model review, saving four tasks and 19 ordered events. Thinker alone worked during model review. Runtime checks and optimization were disabled for this office trial; it does not add new Docker-validation evidence.

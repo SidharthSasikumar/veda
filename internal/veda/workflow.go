@@ -16,7 +16,7 @@ type WorkflowTask struct {
 }
 
 func stageActor(stage string) string {
-	return map[string]string{"cloning": "scout", "environment": "tester", "architecture": "mapper", "checks": "tester", "reasoning": "thinker", "optimizing": "tinkerer", "reporting": "keeper", "reusing": "keeper"}[stage]
+	return map[string]string{"cloning": "scout", "environment": "tester", "architecture": "mapper", "checks": "tester", "reasoning": "thinker", "drafting": "tinkerer", "optimizing": "tinkerer", "reporting": "keeper", "reusing": "keeper"}[stage]
 }
 
 func taskActor(x AuditExperiment) string {
@@ -25,7 +25,7 @@ func taskActor(x AuditExperiment) string {
 		return "scout"
 	case "model":
 		return "thinker"
-	case "candidate":
+	case "candidate", "change", "preview":
 		return "tinkerer"
 	}
 	if x.Kind == "static" && x.Title == "Map declared architecture" {

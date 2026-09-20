@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func (s *Server) repositoryRoutes(mux *http.ServeMux) {
@@ -173,5 +174,74 @@ func (s *Server) repositoryRoutes(mux *http.ServeMux) {
 			return
 		}
 		jsonOut(w, map[string]string{"path": path, "content": string(content), "revision": run.Repository.Commit})
+	})
+	lookupChange := func(w http.ResponseWriter, r *http.Request) (*Hub, Investigation, *SuggestedChange) {
+		h := requireHub(w)
+		if h == nil {
+			return nil, Investigation{}, nil
+		}
+		run, err := h.Get(r.PathValue("id"))
+		if err != nil {
+			apiError(w, err, 404)
+			return nil, run, nil
+		}
+		for _, c := range investigationChanges(run) {
+			if c.ID == r.PathValue("change") {
+				return h, run, &c
+			}
+		}
+		apiError(w, errors.New("suggested change not found"), 404)
+		return nil, run, nil
+	}
+	mux.HandleFunc("GET /api/investigations/{id}/changes/{change}/patch", func(w http.ResponseWriter, r *http.Request) {
+		_, _, c := lookupChange(w, r)
+		if c == nil {
+			return
+		}
+		if c.Patch == "" {
+			apiError(w, errors.New("no applicable patch recorded for this suggestion"), 404)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="veda-suggested-change.patch"`)
+		_, _ = io.WriteString(w, c.Patch)
+	})
+	mux.HandleFunc("GET /api/investigations/{id}/changes/{change}/preview/{image}", func(w http.ResponseWriter, r *http.Request) {
+		h, run, c := lookupChange(w, r)
+		if c == nil {
+			return
+		}
+		name := r.PathValue("image")
+		if name != "before" && name != "after" && name != "difference" {
+			apiError(w, errors.New("unknown preview image"), 404)
+			return
+		}
+		p := c.Preview
+		if p == nil || (p.Status != "captured" && p.Status != "partial") || p.Hashes[name] == "" || !strings.HasPrefix(p.RunID, "RUN-") || filepath.Base(p.RunID) != p.RunID || filepath.Base(c.ID) != c.ID {
+			apiError(w, errors.New("no captured UI preview"), 404)
+			return
+		}
+		origin, err := h.Get(p.RunID)
+		if err != nil || origin.Repository.Commit != run.Repository.Commit || origin.Repository.Name != run.Repository.Name {
+			apiError(w, errors.New("preview provenance does not match this revision"), 409)
+			return
+		}
+		root, err := os.OpenRoot(filepath.Join(h.Root, "investigations", p.RunID, "changes", c.ID))
+		if err != nil {
+			apiError(w, err, 404)
+			return
+		}
+		defer root.Close()
+		data, err := root.ReadFile(name + ".png")
+		if err != nil {
+			apiError(w, err, 404)
+			return
+		}
+		if len(data) > 8<<20 || digest(string(data)) != p.Hashes[name] {
+			apiError(w, errors.New("preview checksum mismatch"), 409)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(data)
 	})
 }

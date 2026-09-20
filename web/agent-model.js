@@ -6,15 +6,15 @@ const VedaAgents = (() => {
     {id:'mapper', name:'Mapper', job:'System architect', description:'Connects infrastructure and application components to source evidence.', tool:'map', color:'#8875b7'},
     {id:'tester', name:'Tester', job:'Evidence investigator', description:'Prepares runtimes and dependencies, then runs supported source and isolated checks.', tool:'terminal', color:'#5376a8'},
     {id:'thinker', name:'Thinker', job:'Local model reviewer', description:'Reviews the objective and observed evidence with the local model.', tool:'bulb', color:'#ba8844'},
-    {id:'tinkerer', name:'Tinkerer', job:'Benchmark researcher', description:'Proposes Go candidates and compares their tests and measurements.', tool:'wrench', color:'#b36d6e'},
+    {id:'tinkerer', name:'Tinkerer', job:'Change researcher', description:'Drafts reviewable source changes, captures supported UI previews, and compares Go benchmark candidates.', tool:'wrench', color:'#b36d6e'},
     {id:'keeper', name:'Keeper', job:'Knowledge librarian', description:'Saves the report and preserves evidence for future investigations.', tool:'book', color:'#678552'}
   ];
-  const stageRole = {cloning:'scout',environment:'tester',architecture:'mapper',checks:'tester',reasoning:'thinker',optimizing:'tinkerer',reporting:'keeper',reusing:'keeper'};
+  const stageRole = {cloning:'scout',environment:'tester',architecture:'mapper',checks:'tester',reasoning:'thinker',drafting:'tinkerer',optimizing:'tinkerer',reporting:'keeper',reusing:'keeper'};
   const labels = {working:'Working',waiting:'Waiting',done:'Done',issues:'Issues found',blocked:'Blocked',skipped:'Not enabled',not_started:'Not reached',cancelled:'Cancelled',interrupted:'Stopped',reused:'Reused evidence'};
   function roleFor(task) {
     if(task.kind==='source') return 'scout';
     if(task.kind==='model') return 'thinker';
-    if(task.kind==='candidate') return 'tinkerer';
+    if(['candidate','change','preview'].includes(task.kind)) return 'tinkerer';
     if(task.kind==='static' && task.title==='Map declared architecture') return 'mapper';
     return 'tester';
   }
@@ -51,8 +51,8 @@ const VedaAgents = (() => {
         state=['issues','blocked','cancelled','interrupted'].find(s=>assigned.some(t=>t.state===s)) || (assigned.every(t=>t.state==='skipped')?'skipped':run.reused_from?'reused':'done');
         const last=assigned.findLast(t=>t.state===state)||assigned.at(-1);
         activity=last.conclusion||`${last.title} · ${labels[last.state]}`;
-      } else if((role.id==='thinker'&&!request.model)||(role.id==='tinkerer'&&!request.optimize)) {
-        state='skipped';activity=role.id==='thinker'?'Local model review was not enabled.':'Benchmark improvements were not enabled.';
+      } else if((role.id==='thinker'&&!request.model)||(role.id==='tinkerer'&&!request.optimize&&!request.changes)) {
+        state='skipped';activity=role.id==='thinker'?'Local model review was not enabled.':'Suggested changes and benchmark improvements were not enabled.';
       } else if(!live) {
         state='not_started';activity=run.status==='cancelled'?'Investigation stopped before this stage.':'No work was recorded for this stage.';
       }

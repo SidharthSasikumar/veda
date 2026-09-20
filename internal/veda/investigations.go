@@ -15,15 +15,18 @@ import (
 )
 
 type InvestigationRequest struct {
-	URL       string `json:"url"`
-	Ref       string `json:"ref"`
-	Objective string `json:"objective"`
-	Force     bool   `json:"force"`
-	Runtime   bool   `json:"runtime"`
-	Model     bool   `json:"model"`
-	Optimize  bool   `json:"optimize"`
-	Benchmark string `json:"benchmark"`
-	Module    string `json:"module"`
+	URL         string `json:"url"`
+	Ref         string `json:"ref"`
+	Objective   string `json:"objective"`
+	Force       bool   `json:"force"`
+	Runtime     bool   `json:"runtime"`
+	Model       bool   `json:"model"`
+	Optimize    bool   `json:"optimize"`
+	Changes     bool   `json:"changes"`
+	Previews    bool   `json:"previews"`
+	PreviewPage string `json:"preview_page,omitempty"`
+	Benchmark   string `json:"benchmark"`
+	Module      string `json:"module"`
 }
 type Finding struct {
 	Title    string `json:"title"`
@@ -63,6 +66,7 @@ type Investigation struct {
 	Repository      Repository           `json:"repository"`
 	Architecture    Graph                `json:"architecture"`
 	Experiments     []AuditExperiment    `json:"experiments"`
+	Changes         []SuggestedChange    `json:"changes,omitempty"`
 	Findings        []Finding            `json:"findings"`
 	Events          []Event              `json:"events"`
 	Summary         string               `json:"summary"`
@@ -240,6 +244,12 @@ func (h *Hub) Start(in InvestigationRequest) (string, error) {
 		return "", err
 	}
 	in.URL = url
+	if in.Changes {
+		in.Model = true
+	}
+	if in.PreviewPage != "" && (!allowedRepoFile(in.PreviewPage) || strings.ToLower(filepath.Ext(in.PreviewPage)) != ".html") {
+		return "", errors.New("preview page must be a captured repository-relative HTML file")
+	}
 	if err = ValidateRef(in.Ref); err != nil {
 		return "", err
 	}
@@ -388,7 +398,16 @@ func (h *Hub) investigate(ctx context.Context, r *Investigation) {
 		}
 		h.prepareRuntimes(ctx, r)
 	}
-	settings, _ := json.Marshal(map[string]any{"analyzer": AnalyzerVersion, "config": h.Config, "runtime": r.Request.Runtime, "model_review": r.Request.Model, "images": r.Images, "optimize": r.Request.Optimize, "benchmark": r.Request.Benchmark, "module": r.Request.Module})
+	if r.Request.Changes && r.Request.Previews {
+		probe, cancel := context.WithTimeout(ctx, 5*time.Second)
+		image, err := DockerReady(probe, PreviewImage)
+		cancel()
+		if err != nil {
+			image = "unavailable"
+		}
+		r.Images["UI preview"] = image
+	}
+	settings, _ := json.Marshal(map[string]any{"analyzer": AnalyzerVersion, "config": h.Config, "runtime": r.Request.Runtime, "model_review": r.Request.Model, "images": r.Images, "optimize": r.Request.Optimize, "benchmark": r.Request.Benchmark, "module": r.Request.Module, "changes": r.Request.Changes, "previews": r.Request.Previews, "preview_page": r.Request.PreviewPage})
 	r.Signature = digest(string(settings))
 	previous, err := h.knowledge(r.Repository.Name, r.Repository.Commit, r.Signature)
 	if err != nil {
@@ -407,6 +426,7 @@ func (h *Hub) investigate(ctx context.Context, r *Investigation) {
 					r.EvidenceCreated = prior.EvidenceCreated
 				}
 				r.Experiments = prior.Experiments
+				r.Changes = prior.Changes
 				r.Limits = prior.Limits
 				_ = h.event(r, "reusing", "Reusing verified knowledge for this exact commit, objective and analysis settings. Original evidence times are retained.")
 				return
@@ -468,6 +488,9 @@ func (h *Hub) investigate(ctx context.Context, r *Investigation) {
 			return
 		}
 	}
+	if r.Request.Changes && ctx.Err() == nil {
+		h.suggestChanges(ctx, r)
+	}
 	if r.Request.Optimize && ctx.Err() == nil {
 		h.optimize(ctx, r, dir)
 	}
@@ -499,6 +522,15 @@ func InvestigationReport(r Investigation) string {
 	}
 	for _, f := range r.Findings {
 		fmt.Fprintf(&b, "- **%s** %s — `%s:%d` (%s). %s\n", f.Severity, f.Title, f.Path, f.Line, f.Basis, f.Evidence)
+	}
+	if len(r.Changes) > 0 {
+		b.WriteString("\n## Suggested changes\n\n")
+		for _, c := range r.Changes {
+			fmt.Fprintf(&b, "- **%s** %s [%s]. %s %s\n", c.ID, c.Title, c.Status, c.Rationale, c.Validation)
+			if c.Preview != nil {
+				fmt.Fprintf(&b, "  UI preview: %s — %s\n", c.Preview.Status, c.Preview.Reason)
+			}
+		}
 	}
 	b.WriteString("\n## Coverage and limits\n\n")
 	for _, limit := range r.Limits {

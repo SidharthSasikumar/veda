@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const AnalyzerVersion = "repository-v2.3"
+const AnalyzerVersion = "repository-v2.4"
 const maxRepoFiles = 1200
 const maxRepoBytes = 24 << 20
 
@@ -45,6 +45,7 @@ type GitLoader struct{}
 
 var githubRepo = regexp.MustCompile(`^https://github\.com/([A-Za-z0-9][A-Za-z0-9-]{0,38})/([A-Za-z0-9_.-]{1,100})/?$`)
 var githubRef = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,160}$`)
+var exactCommit = regexp.MustCompile(`^[a-fA-F0-9]{40}$`)
 
 func CanonicalRepository(raw string) (string, string, error) {
 	raw = strings.TrimSpace(raw)
@@ -155,12 +156,29 @@ func (GitLoader) Load(ctx context.Context, url, ref, dest string) (Repository, e
 		return repo, err
 	}
 	args := []string{"clone", "--depth=1", "--no-checkout", "--no-tags", "--filter=blob:limit=128k"}
-	if ref != "" {
+	pinned := exactCommit.MatchString(ref)
+	if ref != "" && !pinned {
 		args = append(args, "--branch", ref)
 	}
 	args = append(args, "--", canonical+".git", gitdir)
 	if _, err = gitCommand(ctx, "", args...); err != nil {
 		return repo, err
+	}
+	if pinned {
+		if _, err = gitCommand(ctx, gitdir, "fetch", "--depth=1", "--no-tags", "origin", ref); err != nil {
+			return repo, err
+		}
+		resolved, e := gitCommand(ctx, gitdir, "rev-parse", "FETCH_HEAD^{commit}")
+		if e != nil {
+			return repo, e
+		}
+		if !strings.EqualFold(strings.TrimSpace(resolved), ref) {
+			return repo, errors.New("fetched revision does not match requested commit")
+		}
+		// Detach HEAD without checking out or executing any repository content.
+		if _, err = gitCommand(ctx, gitdir, "update-ref", "--no-deref", "HEAD", strings.TrimSpace(resolved)); err != nil {
+			return repo, err
+		}
 	}
 	sha, err := gitCommand(ctx, gitdir, "rev-parse", "HEAD")
 	if err != nil {

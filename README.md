@@ -19,6 +19,8 @@ Click **New investigation**, paste a GitHub repository URL, and describe what yo
 - **Agent dashboard:** the original minion crew works at six stations in an interactive office. Select an investigation and character to inspect real tasks, evidence, and recorded handoffs. Follow active work, switch to a task timeline, or replay recorded events. Pause motion or use your system’s reduced-motion setting. Characters represent the existing sequential workflow; detailed replay is available for new investigations.
 - **Architecture:** interactive Cytoscape.js graph of Terraform resources/references, Docker image builds, Compose services/dependencies/networks/volumes, Kubernetes resource identities, and application manifests. Select a component to inspect its source file and line. Search, filter, change layout, and export PNG.
 - **Experiments:** a workflow graph with each step's inputs, status, duration, exact command, output, errors, and source evidence. Optional Go optimization exposes individual candidate patches and benchmark sample charts.
+- **Changes:** GitHub-style split/unified diffs, changed-file navigation, viewed markers, validation evidence, and downloadable patches. New investigations can ask the local model for up to two independent suggestions against the captured commit. Existing benchmark patches are also available, including rejected candidates. Source changes are proposed for review; they are never applied to your repository automatically.
+- **UI comparison:** supported static HTML pages get real before/after screenshots, a swipe comparison, and a pixel-difference image. Enable **Capture UI previews** and optionally set **Preview page**. Build the screenshot runtime once with `./scripts/setup-preview.sh`. Missing assets and unsupported framework/backend startup are disclosed; screenshots do not mean the application tests passed.
 - **Report:** source structure, observed checks, separately labeled local-model interpretations, and coverage limits. Export Markdown or the full evidence JSON.
 - **Knowledge:** all repositories share a local SQLite store at `~/Library/Application Support/Veda`. Matching repository, exact commit, objective, analyzer/configuration, and immutable runtime image IDs allow evidence reuse. **Refresh evidence** forces a fresh investigation. New objectives receive relevant prior summaries from the same revision.
 
@@ -116,7 +118,7 @@ This is a conservative fit decision, not a guarantee about free memory or model 
 ./scripts/build.sh
 go test ./...
 go vet ./...
-node --test web/agent-model.test.cjs web/office-model.test.cjs
+node --test web/agent-model.test.cjs web/office-model.test.cjs web/changes-model.test.cjs
 ```
 
 The Go runtime owns planning, experiment orchestration, evaluation, memory, HTTP API, and the embedded dashboard. `internal/veda/model.go` defines the model interface. Go's existing tests and benchmarks provide experimental observations; the model does not supply its own measurements.

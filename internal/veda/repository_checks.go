@@ -310,8 +310,9 @@ type RepositoryReview struct {
 }
 
 func (m LocalModel) Review(ctx context.Context, prompt string) (RepositoryReview, string, error) {
-	schema := object(map[string]any{"summary": str(), "findings": map[string]any{"type": "array", "maxItems": 10, "items": object(map[string]any{"title": str(), "severity": map[string]any{"type": "string", "enum": []string{"error", "warning", "info"}}, "path": str(), "line": map[string]any{"type": "integer", "minimum": 1}, "evidence": str()}, "title", "severity", "path", "line", "evidence")}}, "summary", "findings")
-	raw, err := m.call(ctx, prompt+"\nAnswer the objective in a concise 2-4 sentence summary without repetition. Distinguish observations from hypotheses. Cite only paths and line numbers present in supplied source. Do not assert tests passed without observed evidence. Return up to 6 actionable findings; omit speculative issues unsupported by the excerpts. Infrastructure is declared, not necessarily deployed.", schema)
+	text := func(n int) map[string]any { return map[string]any{"type": "string", "maxLength": n} }
+	schema := object(map[string]any{"summary": text(1000), "findings": map[string]any{"type": "array", "maxItems": 4, "items": object(map[string]any{"title": text(180), "severity": map[string]any{"type": "string", "enum": []string{"error", "warning", "info"}}, "path": text(300), "line": map[string]any{"type": "integer", "minimum": 1}, "evidence": text(500)}, "title", "severity", "path", "line", "evidence")}}, "summary", "findings")
+	raw, err := m.call(ctx, prompt+"\nAnswer the objective in a concise 2-4 sentence summary without repetition. Distinguish observations from hypotheses. Cite only paths and line numbers present in supplied source. Do not assert tests passed without observed evidence. Return up to 4 actionable findings; omit speculative issues unsupported by the excerpts. Infrastructure is declared, not necessarily deployed.", schema)
 	var review RepositoryReview
 	if err == nil {
 		err = json.Unmarshal([]byte(raw), &review)
@@ -332,8 +333,20 @@ func reviewPrompt(r Investigation, previous []Investigation) string {
 	}
 	// Prioritize manifest/infrastructure and source; cap source context for the installed model.
 	files := append([]RepoFile(nil), r.Repository.Files...)
+	var targeted []RepoFile
+	for _, f := range files {
+		if strings.Contains(strings.ToLower(r.Request.Objective), strings.ToLower(f.Path)) {
+			targeted = append(targeted, f)
+		}
+	}
+	if len(targeted) > 0 {
+		files = targeted
+	}
 	sort.SliceStable(files, func(i, j int) bool {
 		score := func(f RepoFile) int {
+			if strings.Contains(strings.ToLower(r.Request.Objective), strings.ToLower(f.Path)) {
+				return -1
+			}
 			if f.Language == "Terraform" || f.Language == "Docker" || f.Language == "YAML" {
 				return 0
 			}
@@ -345,7 +358,7 @@ func reviewPrompt(r Investigation, previous []Investigation) string {
 		return score(files[i]) < score(files[j])
 	})
 	for _, f := range files {
-		if b.Len() > 17500 {
+		if b.Len() > 11500 {
 			break
 		}
 		text := r.Repository.Content[f.Path]
@@ -354,7 +367,7 @@ func reviewPrompt(r Investigation, previous []Investigation) string {
 		}
 		fmt.Fprintf(&b, "\nSOURCE %s (excerpt):\n", f.Path)
 		for line, s := range strings.Split(text, "\n") {
-			if b.Len() > 18000 {
+			if b.Len() > 12000 {
 				break
 			}
 			fmt.Fprintf(&b, "%d: %s\n", line+1, s)
