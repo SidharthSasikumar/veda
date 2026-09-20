@@ -22,6 +22,7 @@ import (
 )
 
 type Server struct {
+	Hub       *Hub
 	Root      string
 	Store     *Store
 	Config    Config
@@ -42,6 +43,7 @@ func NewServer(root string, s *Store, c Config) *Server {
 }
 func (s *Server) Handler(host string) http.Handler {
 	mux := http.NewServeMux()
+	s.repositoryRoutes(mux)
 	mux.HandleFunc("GET /api/state", func(w http.ResponseWriter, r *http.Request) {
 		runs, e := s.Store.Runs()
 		if e != nil {
@@ -148,7 +150,7 @@ func (s *Server) Handler(host string) http.Handler {
 			return
 		}
 		s.mu.Lock()
-		if s.active != "" {
+		if s.active != "" || s.Hub != nil && s.Hub.Active() != "" {
 			s.mu.Unlock()
 			apiError(w, errors.New("an investigation is already running"), 409)
 			return
@@ -194,7 +196,7 @@ func (s *Server) Handler(host string) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 		if r.Host != host {
 			apiError(w, errors.New("invalid local host"), 403)
 			return

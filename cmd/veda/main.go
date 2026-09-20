@@ -1,7 +1,6 @@
 package main
 
 import (
-	"veda.local/veda/internal/veda"
 	"context"
 	"encoding/json"
 	"flag"
@@ -11,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"veda.local/veda/internal/veda"
 )
 
 func main() {
@@ -30,7 +30,7 @@ func run() error {
 		return nil
 	}
 	if command == "version" {
-		fmt.Println("Veda 0.1.0")
+		fmt.Println("Veda 0.2.0")
 		return nil
 	}
 	args := os.Args[2:]
@@ -39,6 +39,7 @@ func run() error {
 	}
 	f := flag.NewFlagSet(command, flag.ContinueOnError)
 	workspace := f.String("workspace", ".", "Go module to investigate")
+	knowledge := f.String("knowledge-dir", veda.DefaultKnowledgeDir(), "shared repository knowledge directory")
 	address := f.String("addr", "127.0.0.1:8787", "local dashboard address")
 	demo := f.Bool("demo", false, "scripted demonstration (bundled example only)")
 	benchmark := f.String("benchmark", "", "single Go benchmark regex")
@@ -115,7 +116,14 @@ func run() error {
 	defer s.DB.Close()
 	switch command {
 	case "serve":
-		return veda.NewServer(root, s, c).Serve(ctx, *address)
+		hub, err := veda.OpenHub(*knowledge, c)
+		if err != nil {
+			return err
+		}
+		defer hub.Close()
+		server := veda.NewServer(root, s, c)
+		server.Hub = hub
+		return server.Serve(ctx, *address)
 	case "research":
 		objective := strings.Join(f.Args(), " ")
 		var m veda.Model = veda.LocalModel{Endpoint: c.Endpoint, Name: c.Model}

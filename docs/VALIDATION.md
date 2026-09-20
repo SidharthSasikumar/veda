@@ -2,7 +2,22 @@
 
 Validated on Apple M5 Pro / 24 GB unified memory, macOS 26.5.2, Go 1.26.4, Docker 29.6.1 and llama.cpp 0.4.0. The model download passed its pinned SHA-256 checksum.
 
-## Automated checks
+## Repository hub (Veda 0.2)
+
+The GitHub URL + objective workflow was exercised through the browser against `SidharthSasikumar/Personal-Engineering-Brain`, commit `6e89169327` (full commit stored in evidence). Final fresh run: `RUN-20260920-131516.330984000`.
+
+- Captured 30 files and extracted 13 components with source-backed relationships.
+- Clicked the Compose API component and opened `docker-compose.yml` at its cited line.
+- Downloaded Go dependencies in a separate manifests-only container; then existing tests in three Go packages and `go vet` passed with test-container networking disabled.
+- Ran the local 9B model to produce the report, with interpretations separately labeled.
+- Inspected architecture and experiment graphs, source excerpts, and detailed check results in the browser.
+- Repeated the identical request as `RUN-20260920-131609.888182000`; all seven completed steps were reused from the final fresh run with the original timestamp and explicit reuse banner.
+- Terraform cross-file references, Compose dependency/build links, source integrity, GitHub input validation, cancellation, single-server locking, same-commit reuse, changed-commit invalidation, settings invalidation, and restart persistence are covered by automated tests.
+- `go test -race ./...`, `go vet ./...`, JavaScript syntax, and `git diff --check` passed for this update.
+
+Earlier hub trials are retained as history. They exposed missing offline dependencies and archive permissions; both were corrected before the final fresh trial. A completed investigation can contain failed or blocked checks; completion means the report was saved, not that the repository passed every check. Python syntax checks were not exercised in this live trial. A second UI trial on the Veda repo (`RUN-20260920-131700.039306000`, branch `codex/usable-prototype`) passed JavaScript syntax checks and the example Go tests, then recorded a three-sample baseline and three rejected optimization candidates. All three candidates failed compilation due to a missing import, so this run achieved no improvement; the UI retains their patches/errors and does not display zero-value failed measurements as successful results. The repository-wide root Go checks exposed its CGO requirement, separately from the passing example module. The original benchmark engine also has the successful trial below.
+
+## Automated checks (original benchmark engine)
 
 - `go test -race ./...`: passed, eight test cases.
 - `go vet ./...`: passed.
