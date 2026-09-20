@@ -2,6 +2,14 @@
 
 The repository hub accepts a GitHub URL, an objective, and an optional branch/tag. It resolves an exact commit, captures source, maps declared architecture, runs checks, asks the local model to interpret evidence, and saves the report. The UI updates after each step. Stop cancels work while retaining completed evidence.
 
+## Virtual agent dashboard
+
+The landing dashboard shows investigations as selectable cards with a small animated crew, current stage, recorded outcomes, filters, and search. Opening a card expands **Agent crew** for that investigation. Six characters represent source capture (Scout), architecture (Mapper), checks (Tester), local model review (Thinker), optional benchmarks (Tinkerer), and saved knowledge (Keeper).
+
+Selecting a character shows its real tasks and latest recorded outcome. Task links open the existing experiment evidence view. The activity feed displays timestamped backend events. These are visual roles over Veda's sequential pipeline, not additional concurrently running models or autonomous processes. Animation follows live stage status; reused evidence, disabled stages, failures, and cancellation remain distinct. A report may be saved even when some checks fail.
+
+The overview and crew refresh every 2.5 seconds. Connection loss pauses character motion and marks activity as last saved. **Pause motion** stops animations, and system `prefers-reduced-motion` is respected. Keyboard-accessible buttons and text statuses complement the decorative characters.
+
 ## Architecture graph
 
 Cytoscape.js 3.33.1 is bundled locally, including its license. No external UI CDN is needed. Native Terraform HCL parsing extracts resources, data sources, modules, variables, and their direct references within a module directory. Compose parsing extracts services, image/build links, dependencies, explicit networks, and named volume mounts. Dockerfiles show base images; Kubernetes manifests show resource identities. Go, Node, and Python manifests identify application components.

@@ -16,6 +16,7 @@ Open **http://127.0.0.1:8787**. The launcher starts the local model on **127.0.0
 
 Click **New investigation**, paste a GitHub repository URL, and describe what you want to understand. Veda clones its default branch (or a selected branch/tag), records the exact commit, and automatically builds a report. Public repos work directly; private repos use an existing `gh auth login` session.
 
+- **Agent dashboard:** small animated virtual crew members represent each investigation. Select an investigation, then Scout, Mapper, Tester, Thinker, Tinkerer, or Keeper to follow real task status, activity, and evidence. Pause motion or use your system’s reduced-motion setting. Characters represent the existing sequential workflow.
 - **Architecture:** interactive Cytoscape.js graph of Terraform resources/references, Docker image builds, Compose services/dependencies/networks/volumes, Kubernetes resource identities, and application manifests. Select a component to inspect its source file and line. Search, filter, change layout, and export PNG.
 - **Experiments:** a workflow graph with each step's inputs, status, duration, exact command, output, errors, and source evidence. Optional Go optimization exposes individual candidate patches and benchmark sample charts.
 - **Report:** source structure, observed checks, separately labeled local-model interpretations, and coverage limits. Export Markdown or the full evidence JSON.
@@ -115,6 +116,7 @@ This is a conservative fit decision, not a guarantee about free memory or model 
 ./scripts/build.sh
 go test ./...
 go vet ./...
+node --test web/agent-model.test.cjs
 ```
 
 The Go runtime owns planning, experiment orchestration, evaluation, memory, HTTP API, and the embedded dashboard. `internal/veda/model.go` defines the model interface. Go's existing tests and benchmarks provide experimental observations; the model does not supply its own measurements.

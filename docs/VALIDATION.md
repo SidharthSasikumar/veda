@@ -2,6 +2,14 @@
 
 Validated on Apple M5 Pro / 24 GB unified memory, macOS 26.5.2, Go 1.26.4, Docker 29.6.1 and llama.cpp 0.4.0. The model download passed its pinned SHA-256 checksum.
 
+## Virtual agent dashboard
+
+The crew overview and per-investigation control room were validated against saved successes, blocked checks, rejected benchmark candidates, and reused evidence. A fresh browser-started investigation (`RUN-20260920-133016.767655000`) exercised the live state: Thinker alone had an active work animation during model review, while completed roles and the waiting Keeper did not. The investigation then completed with all seven recorded steps saved.
+
+Browser checks covered selecting an investigation, selecting Tinkerer, opening its exact rejected candidate and patch, pausing motion, returning to the overview, and searching investigations. The 413px viewport had six crew stations and no horizontal document overflow. Six Node tests cover live role assignment, cancellation/interruption, failed/blocked results, cached evidence, summary/detail consistency, and rejected/disabled tasks. Existing Go tests pass with the race detector; Go vet, JavaScript syntax, and diff checks pass.
+
+The characters are decorative representations of recorded pipeline roles. They do not add parallel model agents or fabricate intermediate task activity.
+
 ## Repository hub (Veda 0.2)
 
 The GitHub URL + objective workflow was exercised through the browser against `SidharthSasikumar/Personal-Engineering-Brain`, commit `6e89169327` (full commit stored in evidence). Final fresh run: `RUN-20260920-131516.330984000`.

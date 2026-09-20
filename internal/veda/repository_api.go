@@ -32,6 +32,14 @@ func (s *Server) repositoryRoutes(mux *http.ServeMux) {
 		revisions := map[string]bool{}
 		reused := 0
 		for _, run := range runs {
+			work := []map[string]any{}
+			for _, step := range run.Experiments {
+				work = append(work, map[string]any{"id": step.ID, "title": step.Title, "kind": step.Kind, "status": step.Status, "duration_seconds": step.Duration})
+			}
+			var activity *Event
+			if len(run.Events) > 0 {
+				activity = &run.Events[len(run.Events)-1]
+			}
 			if run.Repository.Name != "" {
 				repos[run.Repository.Name] = true
 				revisions[run.Repository.Name+"@"+run.Repository.Commit] = true
@@ -39,7 +47,7 @@ func (s *Server) repositoryRoutes(mux *http.ServeMux) {
 			if run.ReusedFrom != "" {
 				reused++
 			}
-			summaries = append(summaries, map[string]any{"id": run.ID, "objective": run.Request.Objective, "repository": run.Repository.Name, "url": run.Request.URL, "commit": run.Repository.Commit, "status": run.Status, "stage": run.Stage, "created": run.Created, "experiments": len(run.Experiments), "findings": len(run.Findings), "reused_from": run.ReusedFrom})
+			summaries = append(summaries, map[string]any{"id": run.ID, "objective": run.Request.Objective, "repository": run.Repository.Name, "url": run.Request.URL, "commit": run.Repository.Commit, "status": run.Status, "stage": run.Stage, "created": run.Created, "finished": run.Finished, "experiments": len(run.Experiments), "findings": len(run.Findings), "reused_from": run.ReusedFrom, "work": work, "request": run.Request, "activity": activity, "has_report": run.Report != ""})
 		}
 		jsonOut(w, map[string]any{"investigations": summaries, "active": h.Active(), "knowledge_dir": h.Root, "repositories": len(repos), "revisions": len(revisions), "reused": reused, "token": s.token, "model": s.Config.Model, "analyzer": AnalyzerVersion})
 	})
