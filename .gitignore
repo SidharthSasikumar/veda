@@ -1,0 +1,7 @@
+.cache/
+.runtime/
+bin/
+models/*.gguf
+models/*.part
+**/.veda/
+.DS_Store
