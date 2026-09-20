@@ -388,7 +388,11 @@ func (h *Hub) optimize(ctx context.Context, r *Investigation, dir string) {
 		}
 	}
 	if benchmark == "" {
-		r.Experiments = append(r.Experiments, AuditExperiment{ID: fmt.Sprintf("EXP-%03d", len(r.Experiments)+1), Title: "Go optimization", Kind: "candidate", Status: "blocked", Conclusion: "No Go benchmark found. Add a benchmark or select a module with one."})
+		_ = h.event(r, "optimizing", "Checking benchmark availability.")
+		_ = h.step(r, "Go optimization", "candidate", "Existing Go benchmark required", func(x *AuditExperiment) {
+			x.Status = "blocked"
+			x.Conclusion = "No Go benchmark found. Add a benchmark or select a module with one."
+		})
 		r.Limits = append(r.Limits, "Optimization requires an existing Go benchmark.")
 		return
 	}
@@ -434,7 +438,6 @@ func (h *Hub) optimize(ctx context.Context, r *Investigation, dir string) {
 				}
 				return string(b)
 			}
-			r.Events = append(r.Events, Event{At: now(), RunID: r.ID, Message: exp.ID + " · " + exp.Hypothesis + " · " + exp.Status})
 			details := AuditExperiment{ID: "OPT-" + exp.ID, Title: exp.Hypothesis, Kind: "candidate", Status: exp.Status, Input: exp.Rationale, Stdout: read("stdout.log"), Stderr: read("stderr.log"), Patch: read("diff.patch"), Metrics: exp.Measurement, Conclusion: exp.Error, Parent: x.ID}
 			var command struct {
 				Program string   `json:"program"`
@@ -465,6 +468,7 @@ func (h *Hub) optimize(ctx context.Context, r *Investigation, dir string) {
 		var x AuditExperiment
 		if json.Unmarshal(data, &x) == nil {
 			r.Experiments = append(r.Experiments, x)
+			taskEvent(r, "task.recorded", x)
 		}
 	}
 	_ = h.save(r)

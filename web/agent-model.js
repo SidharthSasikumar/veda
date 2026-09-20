@@ -23,6 +23,7 @@ const VedaAgents = (() => {
     if(status==='running') return run.status==='running'?'working':run.status==='cancelled'?'cancelled':'interrupted';
     if(['failed','rejected','not_supported'].includes(status)) return 'issues';
     if(status==='blocked') return 'blocked';
+    if(status==='cancelled'||status==='interrupted') return status;
     if(status==='skipped') return 'skipped';
     if(['passed','supported','improved','accepted'].includes(status)) return run.reused_from?'reused':'done';
     return 'not_started';

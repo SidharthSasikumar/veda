@@ -52,6 +52,7 @@ type AuditExperiment struct {
 	Metrics    *Measurement `json:"metrics,omitempty"`
 }
 type Investigation struct {
+	HistoryVersion  int                  `json:"history_version,omitempty"`
 	ID              string               `json:"id"`
 	Request         InvestigationRequest `json:"request"`
 	Status          string               `json:"status"`
@@ -140,6 +141,7 @@ func OpenHub(root string, c Config) (*Hub, error) {
 			r.Stage = "finished"
 			r.Error = "Veda stopped before this investigation finished; completed evidence was retained."
 			r.Finished = now()
+			finishWorkflow(&r)
 			r.Report = InvestigationReport(r)
 			if err = h.save(&r); err != nil {
 				h.Close()
@@ -264,7 +266,8 @@ func (h *Hub) Start(in InvestigationRequest) (string, error) {
 	if h.active != "" {
 		return "", errors.New("another repository investigation is running")
 	}
-	r := Investigation{ID: NewID(), Request: in, Status: "running", Stage: "queued", Created: now(), Analyzer: AnalyzerVersion, Experiments: []AuditExperiment{}, Findings: []Finding{}, Events: []Event{}, Limits: []string{}, Images: map[string]string{}}
+	r := Investigation{HistoryVersion: 1, ID: NewID(), Request: in, Status: "running", Stage: "queued", Created: now(), Analyzer: AnalyzerVersion, Experiments: []AuditExperiment{}, Findings: []Finding{}, Events: []Event{}, Limits: []string{}, Images: map[string]string{}}
+	workflowEvent(&r, Event{Type: "run.started", Status: "running", Message: "Investigation queued."})
 	if err = h.save(&r); err != nil {
 		return "", err
 	}
@@ -281,13 +284,34 @@ func (h *Hub) Start(in InvestigationRequest) (string, error) {
 	return r.ID, nil
 }
 func (h *Hub) event(r *Investigation, stage, msg string) error {
+	previous, next := stageActor(r.Stage), stageActor(stage)
+	if previous != "" && next != "" && previous != next && stage != "reusing" {
+		artifacts := []string{}
+		for _, x := range r.Experiments {
+			if taskActor(x) == previous && x.Status != "running" && x.Status != "skipped" {
+				artifacts = append(artifacts, x.ID)
+			}
+		}
+		if len(artifacts) > 0 {
+			workflowEvent(r, Event{Type: "artifact.handoff", Actor: previous, Recipient: next, ArtifactIDs: artifacts, Message: previous + " → " + next + ": recorded evidence ready for the next stage."})
+		}
+	}
+	typeName := "stage.started"
+	if stage == r.Stage {
+		typeName = "activity"
+	}
+	if stage == "reusing" {
+		typeName = "knowledge.reused"
+	}
 	r.Stage = stage
-	r.Events = append(r.Events, Event{ID: int64(len(r.Events) + 1), RunID: r.ID, At: now(), Message: msg})
+	workflowEvent(r, Event{Type: typeName, Actor: next, Message: msg, Status: r.Status})
 	return h.save(r)
 }
 func (h *Hub) step(r *Investigation, title, kind, input string, fn func(*AuditExperiment)) error {
 	x := AuditExperiment{ID: fmt.Sprintf("EXP-%03d", len(r.Experiments)+1), Title: title, Kind: kind, Status: "running", Started: now(), Input: input, Evidence: []string{}}
+	index := len(r.Experiments)
 	r.Experiments = append(r.Experiments, x)
+	taskEvent(r, "task.started", x)
 	if err := h.save(r); err != nil {
 		return err
 	}
@@ -297,7 +321,8 @@ func (h *Hub) step(r *Investigation, title, kind, input string, fn func(*AuditEx
 	if x.Status == "running" {
 		x.Status = "passed"
 	}
-	r.Experiments[len(r.Experiments)-1] = x
+	r.Experiments[index] = x
+	taskEvent(r, outcomeEvent(x.Status), x)
 	return h.save(r)
 }
 func (h *Hub) investigate(ctx context.Context, r *Investigation) {
@@ -320,6 +345,7 @@ func (h *Hub) investigate(ctx context.Context, r *Investigation) {
 		}
 		r.Stage = "finished"
 		r.Finished = now()
+		finishWorkflow(r)
 		r.Report = InvestigationReport(*r)
 		if e := os.MkdirAll(dir, 0700); e == nil {
 			_ = os.WriteFile(filepath.Join(dir, "report.md"), []byte(r.Report), 0600)

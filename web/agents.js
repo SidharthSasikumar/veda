@@ -21,7 +21,7 @@ function setAgentConnection(connected) {
   if(changed&&view==='workspace'&&tab==='agents')renderCrew(true);
 }
 function openAgentDashboard(){location.hash='agents';switchView('agents');}
-function resetCrewSelection(){crewSelection='';crewDetailKey='';}
+function resetCrewSelection(){crewSelection='';crewDetailKey='';resetOffice();}
 function renderAgentDashboard(force=false) {
   const query=$('crew-search').value.trim().toLowerCase(),filter=$('crew-filter').value;
   const all=library.investigations||[];
@@ -35,33 +35,9 @@ function renderAgentDashboard(force=false) {
   $('crew-investigations').innerHTML=filtered.length?filtered.map(({run,agents,active,issues,finished,total})=>`<button class="investigation-crew-card ${run.status==='running'?'crew-running':''}" data-crew-run="${esc(run.id)}" aria-label="Open investigation: ${esc(run.repository||run.url)} · ${esc(run.objective)} · ${esc(time(run.created))}"><div class="crew-card-top"><span class="crew-repository">${esc(run.repository||run.url)}</span>${badge(run.reused_from?'reused':run.status)}</div><h3>${esc(run.objective)}</h3><div class="mini-crew">${agents.map(a=>`<div class="mini-agent">${minion(a,a.state,true)}<span>${a.name}</span><i class="crew-state-dot is-${a.state}" title="${a.label}"></i></div>`).join('')}</div><div class="crew-card-activity"><span class="crew-state-dot is-${active?'working':issues||['failed','cancelled','interrupted'].includes(run.status)?'issues':run.status==='running'?'waiting':'done'}"></span><span>${esc(active?`${active.name} · ${active.activity}`:run.reused_from?'Retrieved matching knowledge':issues?`${issues} recorded issues or blockers · open evidence`:run.status==='completed'?'Investigation finished · report saved':run.status==='running'?'Waiting for the next stage':`Investigation ${run.status}`)}</span></div><div class="crew-card-footer"><span>${finished}/${total} recorded steps finished${issues?` · ${issues} need review`:''}</span><span>Open crew <b aria-hidden="true">↗</b></span></div><div class="crew-card-time">${esc(time(run.created))} · ${esc(short(run.commit)||'Resolving revision')}</div></button>`).join(''):`<div class="crew-empty">${minion(VedaAgents.roles[0])}<h2>${all.length?'No matching investigations':'Your crew is ready.'}</h2><p>${all.length?'Try another search or filter.':'Start with a GitHub repository and an objective. Your characters will follow every stage.'}</p></div>`;
   $('crew-investigations').querySelectorAll('[data-crew-run]').forEach(button=>button.onclick=()=>selectRun(button.dataset.crewRun));
 }
-function renderCrew(force=false) {
-  const focusedAgent=document.activeElement?.dataset?.agent;
-  if(!current){$('crew-stations').innerHTML='<p class="muted">Loading this investigation’s crew…</p>';$('crew-agent-detail').replaceChildren();$('crew-feed').replaceChildren();$('crew-stage-banner').textContent='Loading saved activity…';return;}
-  const data=VedaAgents.summary(current),agents=data.agents;
-  if(!agents.some(a=>a.id===crewSelection))crewSelection=data.active?.id||agents.find(a=>['issues','blocked'].includes(a.state))?.id||'keeper';
-  const key=JSON.stringify([current.id,current.status,current.stage,agents,current.events,crewSelection,crewConnected]);
-  if(!force&&key===crewDetailKey)return;
-  crewDetailKey=key;
-  const selectedAgent=agents.find(a=>a.id===crewSelection);
-  $('crew-live-label').textContent=!crewConnected?'Connection lost':current.status==='running'?'● Live activity':current.reused_from?'↺ Reused evidence':'Saved activity';
-  $('crew-live-label').classList.toggle('is-live',current.status==='running'&&crewConnected);
-  const note=!crewConnected?'Connection lost. Showing last saved activity; motion is paused.':current.reused_from?'This crew shows reused evidence. No new test or model work was performed.':current.status==='cancelled'||current.status==='interrupted'?'This investigation stopped. Completed evidence is retained; unfinished agents are no longer working.':'';
-  $('crew-run-notice').hidden=!note;$('crew-run-notice').textContent=note;
-  const active=data.active;
-  const headline=active?`${active.name} is ${active.id==='thinker'?'reviewing the evidence':active.id==='tinkerer'?'investigating candidates': 'on the task'}`:current.status==='running'?'Your crew is getting ready':current.reused_from?'Knowledge retrieved':current.status==='completed'?'Investigation complete':`Investigation ${current.status}`;
-  $('crew-stage-banner').innerHTML=`<div><span class="crew-state-dot is-${active?'working':data.issues||['failed','cancelled','interrupted'].includes(current.status)?'issues':current.status==='running'?'waiting':'done'}"></span><strong>${esc(headline)}</strong><p>${esc(active?.activity||(data.issues?`${data.issues} recorded issues or blockers. Select an agent to inspect the evidence.`:'Select an agent below to explore its recorded work.'))}</p></div><span>${data.finished}/${data.total}<small>recorded steps finished</small></span>`;
-  $('crew-stations').innerHTML=agents.map((a,i)=>`<button class="agent-station is-${a.state} ${a.id===crewSelection?'selected':''}" style="--agent-color:${a.color};--agent-delay:${i*.17}s" data-agent="${a.id}" aria-pressed="${a.id===crewSelection}"><div class="agent-station-top"><span class="agent-number">0${i+1}</span><span class="agent-state is-${a.state}">${a.label}</span></div><div class="agent-scene"><div class="agent-desk"></div>${minion(a,a.state)}<span class="agent-task-symbol" aria-hidden="true">${a.state==='working'?'···':a.state==='done'?'✓':a.state==='reused'?'↺':['issues','blocked'].includes(a.state)?'!':'·'}</span></div><strong>${a.name}</strong><span class="agent-job">${a.job}</span><p>${esc(a.activity)}</p><span class="agent-task-count">${a.total?`${a.completed}/${a.total} recorded tasks finished`:a.id==='keeper'?'Report & shared memory':'No tasks recorded'}</span></button>`).join('');
-  $('crew-stations').querySelectorAll('[data-agent]').forEach(button=>button.onclick=()=>{crewSelection=button.dataset.agent;renderCrew();});
-  const a=selectedAgent;
-  $('crew-agent-detail').innerHTML=`<div class="section-heading"><div><div class="eyebrow">SELECTED VIRTUAL AGENT</div><h2>${a.name} <span class="muted">/ ${a.job}</span></h2></div><span class="agent-state is-${a.state}">${a.label}</span></div><p class="muted">${a.description}</p><div class="agent-current-task"><span>${a.state==='working'?'CURRENT ACTIVITY':'RECORDED OUTCOME'}</span><p>${esc(a.activity)}</p></div><h3>Tasks & evidence</h3><div class="agent-task-list">${a.tasks.length?a.tasks.map(t=>`<button class="crew-task" data-task="${esc(t.id)}"><span class="crew-state-dot is-${t.state}"></span><span><strong>${esc(t.title)}</strong><small>${esc(t.id)} · ${esc(t.status)}${t.duration_seconds?` · ${Number(t.duration_seconds).toFixed(1)}s`:''}</small></span><span aria-hidden="true">↗</span></button>`).join(''):a.id==='keeper'&&(current.has_report??!!current.report)?'<button class="crew-task" id="crew-report-link"><span aria-hidden="true">▤</span><span><strong>Saved investigation report</strong><small>Open the report and shared evidence</small></span><span aria-hidden="true">↗</span></button>':`<p class="muted">${a.state==='waiting'?'Tasks will appear when this stage begins.':'No task records for this stage.'}</p>`}</div>`;
-  $('crew-agent-detail').querySelectorAll('[data-task]').forEach(button=>button.onclick=()=>{selectedExperiment=button.dataset.task;showTab('experiments');renderExperiment();$('experiment-detail').scrollIntoView({block:'start'});});
-  if($('crew-report-link'))$('crew-report-link').onclick=()=>showTab('report');
-  if(focusedAgent){const restored=$('crew-stations').querySelector(`[data-agent="${focusedAgent}"]`);restored?.focus({preventScroll:true});}
-  const events=current.events||[];$('crew-event-count').textContent=events.length+' EVENTS';
-  $('crew-feed').innerHTML=events.length?[...events].reverse().slice(0,50).map(e=>`<div class="crew-feed-event"><time>${esc(time(e.at))}</time><p>${esc(e.message)}</p></div>`).join(''):'<p class="muted">Waiting for the first recorded activity…</p>';
-}
+function renderCrew(force=false) { renderOffice(force); }
 function initAgents() {
+  initOffice();
   $('crew-welcome-art').innerHTML=minion(VedaAgents.roles[0],'done')+minion(VedaAgents.roles[1],'done')+minion(VedaAgents.roles[5],'done');
   $('agents-button').onclick=openAgentDashboard;$('back-to-agents').onclick=openAgentDashboard;
   $('crew-new').onclick=newInvestigation;

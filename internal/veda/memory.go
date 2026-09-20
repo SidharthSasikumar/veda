@@ -38,10 +38,19 @@ type Experiment struct {
 	Path        string       `json:"path"`
 }
 type Event struct {
-	ID      int64  `json:"id"`
-	RunID   string `json:"run_id"`
-	At      string `json:"at"`
-	Message string `json:"message"`
+	ID          int64         `json:"id"`
+	RunID       string        `json:"run_id"`
+	At          string        `json:"at"`
+	Message     string        `json:"message"`
+	Version     int           `json:"version,omitempty"`
+	Type        string        `json:"type,omitempty"`
+	Stage       string        `json:"stage,omitempty"`
+	Actor       string        `json:"actor_id,omitempty"`
+	Recipient   string        `json:"recipient_id,omitempty"`
+	TaskID      string        `json:"task_id,omitempty"`
+	ArtifactIDs []string      `json:"artifact_ids,omitempty"`
+	Status      string        `json:"status,omitempty"`
+	Task        *WorkflowTask `json:"task,omitempty"`
 }
 
 func OpenStore(root string) (*Store, error) {

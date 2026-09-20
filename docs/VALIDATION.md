@@ -2,6 +2,16 @@
 
 Validated on Apple M5 Pro / 24 GB unified memory, macOS 26.5.2, Go 1.26.4, Docker 29.6.1 and llama.cpp 0.4.0. The model download passed its pinned SHA-256 checksum.
 
+## Interactive agent office
+
+The office retains the original minion characters at six workstations. A browser-started investigation (`RUN-20260920-144319.498296000`) completed source capture, architecture mapping, source parsing, and a real local-model review, saving four tasks and 19 ordered events. Thinker alone worked during model review. Runtime checks and optimization were disabled for this office trial; it does not add new Docker-validation evidence.
+
+The browser checks covered selecting a workstation with a pointer and keyboard, following a recorded Tester → Thinker handoff, opening its exact `EXP-003` source-check evidence, opening architecture, switching to the timeline and opening model-review evidence, replay/play/pause/return-to-latest, and pausing character motion. At the recorded handoff, Thinker correctly remained waiting before its own task started. Both 390px and 320px layouts had no horizontal document overflow. Browser error logs were empty during these checks.
+
+An identical second request (`RUN-20260920-144835.516355000`) reused the first run, retained its original task timestamps, displayed six current-run events, and showed no fresh check/model execution or timeline. Both saved records passed their payload checksum verification. Earlier investigations remain readable with explicitly labeled summary history.
+
+Eleven Node tests cover role status, no future outcomes in replay, ordered/deduplicated events, reuse provenance, task timing, missing candidate start times, and stopped work. Four new Go tests cover persisted event/task consistency, handoff ordering, reuse, failure/interruption, and legacy decoding. `go test -race ./...`, `go vet ./...`, JavaScript syntax, and diff checks passed. The office adds no model calls, graphics dependency, or background workers.
+
 ## Virtual agent dashboard
 
 The crew overview and per-investigation control room were validated against saved successes, blocked checks, rejected benchmark candidates, and reused evidence. A fresh browser-started investigation (`RUN-20260920-133016.767655000`) exercised the live state: Thinker alone had an active work animation during model review, while completed roles and the waiting Keeper did not. The investigation then completed with all seven recorded steps saved.
