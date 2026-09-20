@@ -11,7 +11,44 @@ function switchView(next){view=next;$('welcome').hidden=next!=='composer';$('com
 function newInvestigation(){selected='';current=null;location.hash='new';switchView('composer');renderSidebar();$('repo-url').focus()}
 function showTab(name){tab=name;document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));document.querySelectorAll('.tab-panel').forEach(p=>p.hidden=p.id!=='tab-'+name);if(name==='agents')renderCrew();if(name==='architecture')requestAnimationFrame(drawArchitecture);if(name==='experiments')requestAnimationFrame(drawExperiments)}
 async function selectRun(id){selected=id;current=null;tab='agents';resetCrewSelection();location.hash=encodeURIComponent(id);graphKey='';experimentKey='';selectedExperiment='';switchView('workspace');renderSidebar();try{const run=await api('/api/investigations/'+encodeURIComponent(id));if(selected===id){current=run;renderRun()}}catch(error){toast(error.message)}}
-function renderSidebar(){const rows=library.investigations||[];$('run-count').textContent=rows.length;$('library-count').textContent=library.revisions||0;$('investigation-list').innerHTML=rows.length?rows.map(r=>`<button class="run-item ${r.id===selected?'active':''}" data-run="${esc(r.id)}"><strong>${esc(r.repository||r.url.replace('https://github.com/',''))}</strong><small>${esc(r.stage)} · ${esc(time(r.created))}${r.reused_from?' · reused':''}</small></button>`).join(''):'<div class="empty-note">Your investigations will appear here.</div>';$('investigation-list').querySelectorAll('[data-run]').forEach(b=>b.onclick=()=>selectRun(b.dataset.run));$('agents-live-count').textContent=rows.filter(r=>r.status==='running').length;$('model-label').textContent=library.model||'Local model';$('start-button').disabled=!!library.active||busy;$('connection-status').textContent=library.active?'Investigation in progress':'Connected · Local workspace'}
+const expandedRepositories=new Set();
+let sidebarContentKey='', sidebarSelected='';
+function renderSidebar(){
+ const rows=library.investigations||[],groups=new Map();
+ for(const run of rows){
+  const name=run.repository||String(run.url||'').replace('https://github.com/','').replace(/\.git\/?$/,'').replace(/\/$/,'')||'Repository pending';
+  const key=name.toLowerCase();
+  if(!groups.has(key))groups.set(key,{name,runs:[]});
+  groups.get(key).runs.push(run);
+ }
+ $('run-count').textContent=groups.size;
+ $('run-count').title=`${groups.size} repositories · ${rows.length} investigations`;
+ $('library-count').textContent=library.revisions||0;
+ const list=$('investigation-list');
+ const contentKey=JSON.stringify([selected,rows.map(r=>[r.id,r.repository,r.url,r.objective,r.status,r.stage,r.created,r.reused_from])]);
+ if(contentKey!==sidebarContentKey){
+  list.querySelectorAll('[data-repo]').forEach(group=>{if(group.open)expandedRepositories.add(group.dataset.repo);else expandedRepositories.delete(group.dataset.repo)});
+  if(selected!==sidebarSelected){for(const [key,group] of groups){if(group.runs.some(r=>r.id===selected))expandedRepositories.add(key)}sidebarSelected=selected;}
+  const focused=document.activeElement,focusedRun=focused?.dataset?.run,focusedRepo=focused?.tagName==='SUMMARY'?focused.parentElement.dataset.repo:null,scrollTop=list.scrollTop;
+  list.innerHTML=groups.size?[...groups].map(([key,group])=>{
+   const active=group.runs.some(r=>r.id===selected),working=group.runs.some(r=>r.status==='running');
+   return `<details class="repo-group ${active?'has-selected':''}" data-repo="${esc(key)}" ${expandedRepositories.has(key)?'open':''}><summary title="${esc(group.name)}"><span class="repo-chevron" aria-hidden="true">›</span><span class="repo-name">${esc(group.name)}</span>${working?'<span class="repo-working" aria-label="Investigation running"></span>':''}<span class="repo-count" aria-label="${group.runs.length} investigations">${group.runs.length}</span></summary><div class="repo-investigations">${group.runs.map(r=>{
+    const status=r.reused_from?'Reused evidence':r.status==='running'?`Working · ${r.stage}`:r.status;
+    return `<button class="repo-investigation ${r.id===selected?'active':''}" data-run="${esc(r.id)}" ${r.id===selected?'aria-current="page"':''} title="${esc(r.objective)} · ${esc(r.id)}"><strong>${esc(r.objective||'Untitled investigation')}</strong><span>${esc(time(r.created))}</span><small class="repo-run-status ${esc(r.status)}">${esc(status)}</small></button>`;
+   }).join('')}</div></details>`;
+  }).join(''):'<div class="empty-note">Your repositories will appear here.</div>';
+  list.querySelectorAll('[data-run]').forEach(button=>button.onclick=()=>selectRun(button.dataset.run));
+  list.querySelectorAll('[data-repo]').forEach(group=>group.addEventListener('toggle',()=>{if(!group.isConnected)return;if(group.open)expandedRepositories.add(group.dataset.repo);else expandedRepositories.delete(group.dataset.repo)}));
+  list.scrollTop=scrollTop;
+  if(focusedRun)[...list.querySelectorAll('[data-run]')].find(el=>el.dataset.run===focusedRun)?.focus({preventScroll:true});
+  if(focusedRepo)[...list.querySelectorAll('[data-repo]')].find(el=>el.dataset.repo===focusedRepo)?.querySelector('summary').focus({preventScroll:true});
+  sidebarContentKey=contentKey;
+ }
+ $('agents-live-count').textContent=rows.filter(r=>r.status==='running').length;
+ $('model-label').textContent=library.model||'Local model';
+ $('start-button').disabled=!!library.active||busy;
+ $('connection-status').textContent=library.active?'Investigation in progress':'Connected · Local workspace';
+}
 function renderLibrary(){const rows=library.investigations||[];$('library-stats').innerHTML=[[library.repositories||0,'Repositories'],[library.revisions||0,'Exact revisions'],[rows.length,'Investigations'],[library.reused||0,'Evidence reuses']].map(([value,label])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('');$('knowledge-location').textContent='Shared storage: '+(library.knowledge_dir||'Loading…');$('library-table').innerHTML=rows.length?`<table><thead><tr><th>REPOSITORY</th><th>REVISION</th><th>OBJECTIVE</th><th>STATUS</th><th>RECORDED</th></tr></thead><tbody>${rows.map(r=>`<tr><td><button class="source-button" data-run="${esc(r.id)}">${esc(r.repository||r.url)}</button></td><td><code>${esc(short(r.commit)||'Resolving')}</code></td><td>${esc(r.objective)}</td><td>${badge(r.status)}</td><td>${esc(time(r.created))}${r.reused_from?' · reused':''}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">No saved knowledge yet. Start an investigation to build your library.</p>';$('library-table').querySelectorAll('[data-run]').forEach(b=>b.onclick=()=>selectRun(b.dataset.run))}
 function sourceButtons(root){root.querySelectorAll('[data-source]').forEach(b=>b.onclick=()=>showSource(b.dataset.source,Number(b.dataset.line)||1))}
 function renderRun(){const r=current;if(!r)return;$('repo-name').textContent=r.repository.name||r.request.url;$('run-objective').textContent=r.request.objective;$('run-status').className='badge '+r.status;$('run-status').textContent=r.status;$('run-revision').textContent=r.repository.commit?'commit '+short(r.repository.commit):'Resolving revision';$('run-time').textContent=time(r.created);$('stage-label').textContent=r.stage;$('cancel-button').hidden=r.status!=='running';$('rerun-button').disabled=!!library.active;$('download-report').href='/api/investigations/'+encodeURIComponent(r.id)+'/report';$('download-evidence').href='/api/investigations/'+encodeURIComponent(r.id)+'/evidence';$('reuse-banner').hidden=!r.reused_from;$('reuse-banner').textContent=`Matching knowledge reused from ${r.reused_from||''}. Original evidence recorded ${time(r.evidence_created)}; this is not a fresh runtime measurement.`;
